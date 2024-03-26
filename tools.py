@@ -596,8 +596,6 @@ def audio_process(audio_path):
 
 def generate_video(audio_path, audio_path_eo, video_path, output_path):
     opt_vid.aud = audio_path_eo
-    #video_path = 'data/video/results/ngp_ep0074.mp4'
-    #output_path = 'data/video/results/output.mp4'
     dir_path = {
         'audio': audio_path,
         'input': video_path,

@@ -1,0 +1,6 @@
+data/*
+__pycache__/*
+shencoder/*
+freqencoder/*
+gridencoder/*
+raymarching/*

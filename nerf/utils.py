@@ -925,7 +925,7 @@ class Trainer(object):
     def test(self, loader, save_path=None, name=None, write_image=False):
 
         if save_path is None:
-            save_path = os.path.join(self.workspace, 'results')
+            save_path = os.path.join(self.workspace, 'results').replace("\\", "/")
 
         if name is None:
             name = f'{self.name}_ep{self.epoch:04d}'
