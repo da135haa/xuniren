@@ -20,11 +20,58 @@ import cv2
 import pygame
 import hashlib
 import video_stream
+import queue
 
 video_list = []
 audio_paths = []
 fay_ws = None
 video_cache = {}
+task_queue = queue.Queue()
+
+def worker():
+    while True:
+        try:
+            # 尝试从队列中获取任务，等待最多1秒
+            task = task_queue.get(timeout=1)
+        except queue.Empty:
+            # 如果队列为空，则跳过此次循环
+            continue
+
+        # 解包任务参数，并执行任务
+        message_dict = task
+        global video_list
+        global video_cache
+        aud_dir = message_dict["Data"]["Value"]
+        aud_dir = aud_dir.replace("\\", "/")
+        print('message:', aud_dir, type(aud_dir))
+        basedir = ""
+        for i in aud_dir.split("/"):
+            basedir = os.path.join(basedir,i)
+        basedir = basedir.replace(":",":\\")   
+        num = time.time()
+        new_path = r'./data/audio/aud_%d.wav'%num  #新路径                
+        old_path = basedir                
+
+        convert_mp3_to_wav(old_path, new_path) 
+        audio_hash = hash_file_md5(new_path)
+        audio_paths.append(new_path)
+        # if audio_hash in video_cache:
+        #     video_list.append({"video": video_cache[audio_hash], "audio": new_path})
+        #     ret, frame = cap.read()
+
+        #     print("视频已存在，直接播放。")
+        # else:
+        audio_path = 'data/audio/aud_%d.wav' % num
+        audio_process(audio_path)
+        audio_path_eo = 'data/audio/aud_%d_eo.npy' % num
+        video_path = 'data/video/results/ngp_%d.mp4' % num
+        output_path = 'data/video/results/output_%d.mp4' % num
+
+        generate_video(audio_path, audio_path_eo, video_path, output_path)
+        video_list.append({"video" : output_path, "audio" : new_path})
+        video_cache[audio_hash] = output_path
+        # 标记任务完成
+        task_queue.task_done()
 
 #增加MD5音频标记，避免重复生成视频
 def hash_file_md5(filepath):
@@ -37,6 +84,7 @@ def hash_file_md5(filepath):
             md5.update(data)
     return md5.hexdigest()
 
+
 def connet_fay():
     global video_list
     global video_cache
@@ -46,34 +94,10 @@ def connet_fay():
     def on_message(ws, message):
         if "audio" in message:
             message_dict = json.loads(message)
-            aud_dir = message_dict["Data"]["Value"]
-            aud_dir = aud_dir.replace("\\", "/")
-            print('message:', aud_dir, type(aud_dir))
-            basedir = ""
-            for i in aud_dir.split("/"):
-                basedir = os.path.join(basedir,i)
-            basedir = basedir.replace(":",":\\")   
-            num = time.time()
-            new_path = r'./data/audio/aud_%d.wav'%num  #新路径                
-            old_path = basedir                
- 
-            convert_mp3_to_wav(old_path, new_path) 
-            audio_hash = hash_file_md5(new_path)
-            audio_paths.append(new_path)
-            # if audio_hash in video_cache:
-            #     video_list.append({"video": video_cache[audio_hash], "audio": new_path})
-            #     ret, frame = cap.read()
+            task_queue.put((message_dict))
 
-            #     print("视频已存在，直接播放。")
-            # else:
-            audio_path = 'data/audio/aud_%d.wav' % num
-            audio_process(audio_path)
-            audio_path_eo = 'data/audio/aud_%d_eo.npy' % num
-            video_path = 'data/video/results/ngp_%d.mp4' % num
-            output_path = 'data/video/results/output_%d.mp4' % num
-            generate_video(audio_path, audio_path_eo, video_path, output_path)
-            video_list.append({"video" : output_path, "audio" : new_path})
-            video_cache[audio_hash] = output_path
+
+
 
     def on_error(ws, error):
         print(f"Fay Error: {error}")
@@ -153,6 +177,7 @@ if __name__ == '__main__':
     video_pre_process()
     video_stream.start()
     threading.Thread(target=connet_fay, args=[]).start()
+    threading.Thread(target=worker, daemon=True).start()
     play_video()
 
 
