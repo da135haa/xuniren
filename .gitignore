@@ -1,0 +1,7 @@
+data/*
+__pycache__/*
+shencoder/*
+freqencoder/*
+gridencoder/*
+raymarching/*
+data/video/log_ngp.txt
