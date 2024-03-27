@@ -1,7 +1,3 @@
-"""
-郭泽斌于2023.04.29参照app.py创建，用于连接github开源项目 Fay 数字人
-"""
-
 import base64
 import time
 import json
@@ -22,6 +18,7 @@ import hashlib
 import video_stream
 import queue
 
+running = True
 video_list = []
 audio_paths = []
 fay_ws = None
@@ -29,7 +26,7 @@ video_cache = {}
 task_queue = queue.Queue()
 
 def worker():
-    while True:
+    while running:
         try:
             # 尝试从队列中获取任务，等待最多1秒
             task = task_queue.get(timeout=1)
@@ -121,10 +118,11 @@ def connet_fay():
         fay_ws.run_forever()
 
     def reconnect():
-        global fay_ws
-        fay_ws = None
-        time.sleep(5)  # 等待一段时间后重连
-        connect()
+        if running:
+            global fay_ws
+            fay_ws = None
+            time.sleep(5)  # 等待一段时间后重连
+            connect()
 
     connect()
 
@@ -134,6 +132,7 @@ def convert_mp3_to_wav(input_file, output_file):
 
 
 def play_video():
+    global running
     global video_list
     global audio_paths
     audio_path = None
@@ -153,16 +152,21 @@ def play_video():
                 if len(imgs) > 0:
                     frame = imgs[0]
                     frame = cv2.cvtColor(frame, cv2.COLOR_RGB2BGR)
-                    cv2.imshow('Fay-2d', frame)
+                    cv2.imshow('2d', frame)
                     # 等待 38 毫秒
                     cv2.waitKey(38)
                     i = i - 1
                 elif i == 0:
                     break
         else:
-            cv2.imshow('Fay-2d', frame)
-            # 等待 38 毫秒
-            cv2.waitKey(38)
+            cv2.imshow('2d', frame)
+            #等待38毫秒後,按下ESC键或窗口被关闭而退出循环
+            key = cv2.waitKey(38)
+            if key == 27 or cv2.getWindowProperty('2d', cv2.WND_PROP_VISIBLE) < 1:
+                running = False  # 设置 running 为 False，通知线程停止
+                cv2.destroyAllWindows()
+                fay_ws.close()
+                return
 
 def play_audio(audio_file):
     pygame.mixer.init()
@@ -179,8 +183,3 @@ if __name__ == '__main__':
     threading.Thread(target=connet_fay, args=[]).start()
     threading.Thread(target=worker, daemon=True).start()
     play_video()
-
-
-    
-    
-
