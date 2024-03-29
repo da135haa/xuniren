@@ -234,6 +234,16 @@ class ASR:
         if self.opt.asr_save_feats:
             self.all_feats.append(feats)
 
+        # 确保feats长度与预期匹配
+        expected_length = self.context_size  # 这是你期望的长度
+        # 如果feats的长度超出了预期，裁剪它
+        if feats.shape[0] > expected_length:
+            feats = feats[:expected_length, :]
+        # 如果feats的长度小于预期，用零填充它
+        elif feats.shape[0] < expected_length:
+            padding = torch.zeros((expected_length - feats.shape[0], feats.shape[1]), dtype=feats.dtype, device=self.device)
+            feats = torch.cat((feats, padding), dim=0)
+      
         # record the feats efficiently.. (no concat, constant memory)
         start = self.feat_buffer_idx * self.context_size
         end = start + feats.shape[0]

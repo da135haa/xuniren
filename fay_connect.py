@@ -100,7 +100,7 @@ def connet_fay():
         print(f"Fay Error: {error}")
         reconnect()
 
-    def on_close(ws):
+    def on_close(ws, *args):
         print("Fay Connection closed")
         reconnect()
 
