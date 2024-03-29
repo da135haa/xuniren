@@ -17,6 +17,8 @@ import pygame
 import hashlib
 import video_stream
 import queue
+from datetime import datetime, timedelta
+import sched
 
 running = True
 video_list = []
@@ -100,7 +102,7 @@ def connet_fay():
         print(f"Fay Error: {error}")
         reconnect()
 
-    def on_close(ws, *args):
+    def on_close(ws):
         print("Fay Connection closed")
         reconnect()
 
@@ -149,7 +151,7 @@ def play_video():
             #循环播放视频帧
             while True:
                 imgs = video_stream.read()
-                if len(imgs) > 0:
+                if len(imgs) > 0: # type: ignore
                     frame = imgs[0]
                     frame = cv2.cvtColor(frame, cv2.COLOR_RGB2BGR)
                     cv2.imshow('2d', frame)
@@ -175,7 +177,38 @@ def play_audio(audio_file):
     while pygame.mixer.music.get_busy():
         pygame.time.Clock().tick(10)
     pygame.mixer.music.stop()
+
+def delete_old_files(directory):
+    print("觸發刪除任務:",directory)
+    """删除指定目录下创建时间超过10分钟的文件"""
+    now = datetime.now()
+    for filename in os.listdir(directory):
+        file_path = os.path.join(directory, filename)
+        if os.path.isfile(file_path):
+            file_stat = os.stat(file_path)
+            creation_time = datetime.fromtimestamp(file_stat.st_ctime)
+            if now - creation_time > timedelta(minutes=10):
+                print(f"Deleting {file_path}...")
+                os.remove(file_path)
+
+def scheduled_deletion(directories, scheduler, interval=600):
+    """安排定期删除任务，适用于多个目录"""
+    for directory in directories:
+        delete_old_files(directory)  
+    # 再次安排该任务，形成循环
+    scheduler.enter(interval, 1, scheduled_deletion, (directories, scheduler, interval))
+                
 if __name__ == '__main__':
+    #定時刪除產生的數據
+    # 启动定时任务（例如，每600秒（10分钟）运行一次）
+    s = sched.scheduler(time.time, time.sleep)
+    directories_to_clean = [
+        "data/audio",
+        "data/video/results",
+    # 添加更多目录路径...
+    ]
+    s.enter(0, 1, scheduled_deletion, (directories_to_clean, s, 600))
+    s.run()
 
     audio_pre_process()
     video_pre_process()
